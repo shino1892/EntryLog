@@ -1,13 +1,30 @@
 import time
 import sys
 import spidev
+import requests
 from felica import get_felica_idm
 import database
+from config import API_URL
 from logger_config import error_logger
 from grove.gpio import GPIO
 
+# サーバーに入構記録を送信
+def send_entry_log(idm):
+    try:
+        url = f"{API_URL}/entry"
+        response = requests.post(url, json={'idm': idm}, timeout=3)
+        if response.status_code == 200:
+            print("Successfully sent entry log to server.")
+        else:
+            print(f"Failed to send entry log. Status: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending entry log: {e}")
+
 # FelicaのIDmを処理
 def process_card(idm):
+    # サーバーへ送信（既存処理とは独立して実行）
+    send_entry_log(idm)
+
     try:
         result = database.get_user_by_idm(idm)
     except Exception as e:
@@ -30,6 +47,20 @@ def process_card(idm):
         print("Unregistered card. Please register the user first.") # TODO: 音で通知「ピッピッ」
         buzzer(0.1,2)
 
+# サーバーにカード登録情報を送信
+def send_register_card(idm, student_id):
+    try:
+        url = f"{API_URL}/register_card"
+        response = requests.post(url, json={'idm': idm, 'student_id': student_id}, timeout=3)
+        if response.status_code == 200:
+            print("Successfully registered card to server.")
+        elif response.status_code == 409:
+            print("Server: Card IDm is already registered.")
+        else:
+            print(f"Failed to register card to server. Status: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending registration: {e}")
+
 # ユーザー登録
 def register_user_flow():
     idm = ""
@@ -49,6 +80,9 @@ def register_user_flow():
             break
         else:
             print("Error: Student number must be numeric.")
+
+    # サーバーへ登録（既存処理とは独立して実行）
+    send_register_card(idm, num)
 
     try:
         if database.register_user(idm, num):
@@ -89,7 +123,7 @@ def led_on(r, g, b, time):
         led_off()
     
 # メインメニュー
-def main_loop(spi):
+def main_loop():
     try:
         database.init_db()
     except Exception as e:
@@ -144,8 +178,8 @@ if __name__ == "__main__":
         spi = spidev.SpiDev()
         spi.open(0,0)
         spi.max_speed_hz = 1000000
-        spe.mode = 0b00
-        main_loop(spi)
+        spi.mode = 0b00
+        main_loop()
     except Exception as e:
         # 予期せぬすべてのエラーをここで捕捉
         error_logger.error("An unexpected error occurred. Exiting program.", exc_info=True)
