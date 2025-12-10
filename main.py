@@ -32,19 +32,21 @@ def process_card(idm):
         print("Error: Failed to read from the database.")
         # 音声で致命的なエラーが発生したことを通知「ピーピー」
         buzzer(0.2,2)
-        # TODO: LEDを黄色表示
+        # LEDを5秒黄色表示
+        led_on(255,255,0,5)
         return
 
     if result:
         num = result[0]  # 出席番号を取得
         timestamp = time.strftime("%Y-%m-%d %H:%M")
         if database.add_attendance(num, timestamp):
-            print(f"Recorded timestamp for student number {num} ({timestamp})") # TODO: 音で通知「ピッ」
+            print(f"Recorded timestamp for student number {num} ({timestamp})") # 音で通知「ピッ」
             buzzer(0.1,1)
         else:
             print(f"Student number {num} already has an attendance record.")
     else:
-        print("Unregistered card. Please register the user first.") # TODO: 音で通知「ピッピッ」
+        print("Unregistered card. Please register the user first.") 
+        # 音で通知「ピッピッ」
         buzzer(0.1,2)
 
 # サーバーにカード登録情報を送信
@@ -94,7 +96,12 @@ def register_user_flow():
         print("Error: Failed to write to the database.")
 
 def buzzer(time, cnt):
-    buzzer = GPIO(5, GPIO.OUT)
+    try:
+        buzzer = GPIO(5, GPIO.OUT)
+    except Exception as e:
+        # ログ出力はするが、ブザー無し運用でエラーログ記録はしない。
+        print(f'Buzzer Exception: {e}')
+        return # ブザーがなくても実行を続ける。
 
     for i in range(cnt):
         buzzer.write(1)
@@ -162,7 +169,7 @@ def main_loop():
                         buzzer(0.1,1)
                         buzzer(0.2,1)
                         # 5秒間を黄色表示
-                        led_on(0, 255, 255, 5)
+                        led_on(255, 255, 0, 5)
                         time.sleep(5)
 
             except KeyboardInterrupt:
@@ -185,7 +192,7 @@ if __name__ == "__main__":
         error_logger.error("An unexpected error occurred. Exiting program.", exc_info=True)
         print("\nAn unexpected error occurred. See error.log for details.")
         print("Exiting program.")
-        # TODO: 音声で致命的なエラーが発生したことを通知「ピーピーピーーーー」
+        # 音声で致命的なエラーが発生したことを通知「ピーピーピーーーー」
         buzzer(0.2,2)
         buzzer(0.5,1)
         # LEDを赤色表示
